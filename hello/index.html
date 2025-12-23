@@ -1,14 +1,142 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Hello World</title>
+    <title>Hello Widget</title>
+
+    <!-- Librairies tierces -->
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    <script
+      defer
+      src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"
+    ></script>
     <script src="https://docs.getgrist.com/grist-plugin-api.js"></script>
+
+    <!-- Styles locaux -->
+    <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
-    <h1>Hello, Grist!</h1>
-    <p id="info">Waiting for data…</p>
-    <script type="module" src="./widget.js"></script>
+
+  <body x-data="gristHelloWidget()" x-init="init()">
+    <h1>Hello widget 👋</h1>
+
+    <!-- Barre d’actions -->
+    <div class="toolbar">
+      <button
+        class="btn"
+        title="Rafraîchir depuis Grist"
+        hx-on:click="refresh()"
+      >
+        🔄
+      </button>
+
+      <!-- Filtre live avec debounce -->
+      <input
+        type="text"
+        placeholder="Filtrer par Nom…"
+        x-model="filter"
+        hx-on:keyup.debounce.300ms="invalidateFilter()"
+      />
+
+      <!-- Actions en lot -->
+      <button class="btn" hx-on:click="bulkToggleDone(true)">
+        Tout ➜ Terminé
+      </button>
+      <button class="btn" hx-on:click="bulkToggleDone(false)">
+        Tout ➜ À faire
+      </button>
+
+      <!-- Ajout rapide -->
+      <form class="row" hx-on:submit.prevent="addQuick()">
+        <input
+          type="text"
+          placeholder="Nouveau Nom…"
+          x-model="newName"
+          required
+        />
+        <button class="btn primary" type="submit">Ajouter</button>
+      </form>
+    </div>
+
+    <!-- Tableau -->
+    <table>
+      <thead>
+        <tr>
+          <th style="width: 42px">
+            <!-- Select/Deselect all (htmx déclenche une méthode Alpine) -->
+            <input
+              type="checkbox"
+              :checked="allChecked()"
+              hx-on:change="toggleAll($event.target.checked)"
+            />
+          </th>
+          <th style="width: 72px">ID</th>
+          <th>Nom</th>
+          <th style="width: 120px">Statut</th>
+          <th style="width: 160px">Créé le</th>
+          <th style="width: 220px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <template x-for="row in viewRows()" :key="row.id">
+          <tr :class="{'is-selected': selectedRowId === row.id}">
+            <td>
+              <input
+                type="checkbox"
+                :checked="selectedIds.has(row.id)"
+                hx-on:change="toggleSelect(row.id, $event.target.checked)"
+              />
+            </td>
+
+            <td x-text="row.id"></td>
+
+            <!-- Édition inline avec debounce -->
+            <td>
+              <input
+                type="text"
+                x-model="row.Name"
+                placeholder="Nom…"
+                hx-on:keyup.debounce.400ms="save(row.id, {Name: row.Name})"
+              />
+            </td>
+
+            <td class="row">
+              <span
+                class="pill"
+                :class="row.Done ? 'ok' : 'ko'"
+                x-text="row.Done ? 'Terminé' : 'À faire'"
+              ></span>
+              <button
+                class="btn"
+                title="Basculer"
+                hx-on:click="save(row.id, {Done: !row.Done})"
+              >
+                ↩︎
+              </button>
+            </td>
+
+            <td><span x-text="formatDate(row.CreatedAt)"></span></td>
+
+            <td class="row">
+              <button class="btn" hx-on:click="duplicate(row)">
+                Dupliquer
+              </button>
+              <button class="btn" hx-on:click="remove(row.id)">
+                Supprimer
+              </button>
+              <button
+                class="btn"
+                title="Pointer la ligne dans Grist"
+                hx-on:click="selectInGrist(row.id)"
+              >
+                🎯
+              </button>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+
+    <script src="main.js"></script>
   </body>
 </html>
